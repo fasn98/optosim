@@ -8,12 +8,9 @@ abstract: >-
   can be mistaken for a measurement: every emitted quantity is labelled
   PREDICTED and every model constant is either cited or reported as uncited.
 authors:
-  # See the note in chemdisco/CITATION.cff: only a given name is recorded in
-  # this project, so only a given name is claimed. Add family-names and orcid
-  # before archiving if you want them in the DOI record.
-  - given-names: Fabio
-    # family-names: ""
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+  - given-names: Fabio Augusto
+    family-names: Sales Nogueira
+    orcid: "https://orcid.org/0009-0001-9303-8707"
 license: MIT
 repository-code: "https://github.com/fasn98/optosim"
 keywords:

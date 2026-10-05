@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A biophysical optogenetics simulator that never presents a model output as a measurement."
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Fabio" }]
+authors = [{ name = "Fabio Augusto Sales Nogueira" }]
 readme = "README.md"
 keywords = ["optogenetics", "channelrhodopsin", "hodgkin-huxley", "simulation"]
 
