@@ -1,0 +1,87 @@
+/root/optosim/.venv/lib/python3.12/site-packages/pyrho/__init__.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import get_distribution, DistributionNotFound
+
+==============================================================================
+0. Reference availability
+==============================================================================
+  PyRhO importable: False
+  detail: TypeError: descriptor '__setitem__' requires a 'collections.OrderedDict' object but received a 'PyRhOparameters'
+
+  The trace-against-trace comparison CANNOT be run. PyRhO was not
+  patched to make it run: editing the reference until it agrees is not
+  a validation. Model agreement is therefore UNVERIFIED, and what
+  follows validates the numerics only.
+
+==============================================================================
+1. Numerics: fixed-step RK4 against the exact solution
+==============================================================================
+  1.0 mW/mm^2 = 2.3660e+15 photons/mm^2/s
+  Ga 0.068086  Gd 0.104000  Gr 0.020978  (per ms)
+
+  Under constant light the rates are constant, so the system is linear
+  and expm(At)x0 is exact. This is a test of the integration, not of the
+  biology.
+
+  samples compared:                20001
+  max |O_numeric - O_exact|:       5.662e-15  (at t = 7.37 ms)
+  as a fraction of the peak:       1.907e-14
+  max |C+O+D - 1|:                 5.218e-15
+
+  VERDICT: PASS against a 1e-06 absolute tolerance on the open fraction.
+  The integrator reproduces the exact solution to well under the
+  precision any parameter here is known to, so integration error is
+  not a limit on anything this package reports.
+
+==============================================================================
+2. Algebra: converged open fraction against PyRhO's closed form
+==============================================================================
+  PyRhO documents I_SS proportional to Ga*Gr / (Gd*(Gr+Ga) + Ga*Gr).
+  Read from its source, not executed. This checks the algebra against the
+  reference's own stated result; it cannot check the transient.
+
+  closed form:                     0.1336002461
+  converged exact solution:        0.1336002461
+  absolute deviation:              1.533e-13
+  relative deviation:              1.148e-12
+
+  VERDICT: PASS
+
+==============================================================================
+3. What this does and does not establish
+==============================================================================
+  Established: the photocycle is integrated correctly, and the steady
+  state agrees with the formula PyRhO publishes for the same model.
+
+  NOT established: that the model describes real ChR2, or that this
+  implementation agrees with PyRhO's transient. The peak-to-plateau ratio
+  this model produces (2.22 at 1 mW/mm^2, 2.83 at 10) is in the range
+  reported for ChR2, which is encouraging and is not a measurement of
+  agreement with anything.
+
+  This is the same shape as chemdisco's redocking result: the mechanics
+  are right and the harder question is left open and labelled, rather
+  than answered by a number that was not measured.
+
+Irradiance is specified AT THE OPSIN. Propagation through tissue is not modelled: no absorption, scattering or depth attenuation. Blue light falls off steeply in brain tissue, so these values are not the output of a light source at the surface and must not be read as one. Tissue optics is a future layer, not an effect already included.
+
+=== JSON ===
+{
+  "irradiance_mw_mm2": 1.0,
+  "photon_flux": 2366034786745074.0,
+  "dt_ms": 0.01,
+  "duration_ms": 200.0,
+  "n_samples": 20001,
+  "max_abs_open_fraction_error": 5.662137425588298e-15,
+  "max_conservation_error": 5.218048215738236e-15,
+  "numerics_pass": true,
+  "steady_state_closed_form": 0.13360024610415938,
+  "steady_state_converged": 0.1336002461043127,
+  "steady_state_relative_deviation": 1.1476161472127763e-12,
+  "algebra_pass": true,
+  "pyrho_importable": false,
+  "pyrho_detail": "TypeError: descriptor '__setitem__' requires a 'collections.OrderedDict' object but received a 'PyRhOparameters'",
+  "model_agreement_verified": false,
+  "model_agreement_note": "PyRhO could not be executed under Python 3.12 and was deliberately not patched; a deviation against a modified reference would be meaningless. Trace-against-trace agreement is UNVERIFIED."
+}
+
+Written to runs/opsin_validation.json

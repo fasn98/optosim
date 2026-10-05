@@ -1,0 +1,18 @@
+{
+  "irradiance_mw_mm2": 1.0,
+  "photon_flux": 2366034786745074.0,
+  "dt_ms": 0.01,
+  "duration_ms": 200.0,
+  "n_samples": 20001,
+  "max_abs_open_fraction_error": 5.662137425588298e-15,
+  "max_conservation_error": 5.218048215738236e-15,
+  "numerics_pass": true,
+  "steady_state_closed_form": 0.13360024610415938,
+  "steady_state_converged": 0.1336002461043127,
+  "steady_state_relative_deviation": 1.1476161472127763e-12,
+  "algebra_pass": true,
+  "pyrho_importable": false,
+  "pyrho_detail": "TypeError: descriptor '__setitem__' requires a 'collections.OrderedDict' object but received a 'PyRhOparameters'",
+  "model_agreement_verified": false,
+  "model_agreement_note": "PyRhO could not be executed under Python 3.12 and was deliberately not patched; a deviation against a modified reference would be meaningless. Trace-against-trace agreement is UNVERIFIED."
+}
