@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "optosim"
+abstract: >-
+  A biophysical optogenetics simulator -- Hodgkin-Huxley membrane, ChR2
+  three-state photocycle, irradiance protocols -- built so that no model output
+  can be mistaken for a measurement: every emitted quantity is labelled
+  PREDICTED and every model constant is either cited or reported as uncited.
+authors:
+  # See the note in chemdisco/CITATION.cff: only a given name is recorded in
+  # this project, so only a given name is claimed. Add family-names and orcid
+  # before archiving if you want them in the DOI record.
+  - given-names: Fabio
+    # family-names: ""
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+license: MIT
+repository-code: "https://github.com/fasn98/optosim"
+keywords:
+  - reproducibility
+  - provenance
+  - optogenetics
+  - channelrhodopsin
+  - ChR2
+  - computational neuroscience
+# Added by Zenodo after the first release is archived.
+# doi: ""

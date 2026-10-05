@@ -1,0 +1,19 @@
+{
+  "title": "optosim: a biophysical optogenetics simulator that never reports a model output as a measurement",
+  "upload_type": "software",
+  "license": "MIT",
+  "description": "<p>A single-compartment optogenetics simulator: Hodgkin-Huxley membrane, a ChR2 three-state Markov photocycle, irradiance protocols, and a leaky integrate-and-fire baseline paired with the full model so the gap between them can be read.</p><p>A simulator emits predictions by definition, and the design point is that this stays visible. Every trace, spike time and summary is labelled PREDICTED and names the model and parameter set that produced it; there is no code path by which a computed series can claim to be measured. Model constants are either cited to a source or reported as uncited, and the report lists the uncited ones every run.</p><p>Validation, with what each step does and does not establish: the photocycle integrator agrees with the exact matrix-exponential solution to 5.7e-15; the steady state matches PyRhO's published closed form to a relative 1.1e-12; and the full transient agrees with PyRhO's own integration of its own equations to 1.7e-08 at 1 mW/mm2 and 3.4e-08 at 10. That establishes the equations were transcribed correctly. It does not establish that the three-state photocycle describes real ChR2, which would need measured photocurrents and has not been attempted.</p>",
+  "creators": [
+    {"name": "Fabio"}
+  ],
+  "keywords": [
+    "reproducibility",
+    "provenance",
+    "optogenetics",
+    "channelrhodopsin",
+    "ChR2",
+    "Hodgkin-Huxley",
+    "computational neuroscience"
+  ],
+  "access_right": "open"
+}
