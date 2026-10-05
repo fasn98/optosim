@@ -17,6 +17,49 @@ python scripts/validate_opsin.py --irradiance 1    # numerics, algebra, agreemen
 python scripts/validate_opsin.py --irradiance 10   # all three again at 10x flux
 ```
 
+## How to work in this repository
+
+### Detach anything long, and commit each result as it lands
+
+**Anything expected to take more than ~10 minutes runs under `setsid`/`nohup` or
+`tmux`. Commit each result the moment its file closes — not at the end of the
+block of work.**
+
+This is not a style preference. It was learned twice, the hard way, in a single
+afternoon:
+
+- A `discover` run in the sibling chemdisco repo was killed by a session teardown
+  at 30 of 90 ligands, having written no output. Forty minutes of docking, gone,
+  with nothing to show it had run.
+- Mid-edit source changes to that same repo's `discover.py` were lost the same
+  way, because they were being held for one tidy commit at the end.
+
+What survived both teardowns was exactly what had been detached and what had been
+committed. A later `discover` run, launched under `setsid`, ran for 101 minutes
+straight through a session ending and finished normally.
+
+Concretely:
+
+```bash
+setsid nohup bash -c 'long thing here' >> runs/thing.console.log 2>&1 < /dev/null &
+```
+
+Then commit the artefact as soon as it exists, with its log. Two reasons it has to
+be *immediately* rather than at the end:
+
+1. **A local, unpushed commit is already enough.** The work survives in `.git`
+   even if nothing reaches the remote. There is no excuse for holding an edit.
+2. **A partial artefact must not be committed as though it were complete.** Wait
+   for the file to *close*, not for the work block to finish — those are different
+   moments, and conflating them is how a truncated measurement gets into the
+   record looking like a finished one. If a run is still writing, leave it out and
+   say so.
+
+Corollary for this repository specifically: `scripts/pyrho_reference.py` runs in a
+separate Python 3.9 environment and takes a while on the 200 ms traces. Its output
+is committed (`runs/pyrho_reference_*.json`) precisely so nobody has to re-run it,
+and so the agreement test works without PyRhO installed.
+
 ## Pending work, most important first
 
 ### 1. Validate against MEASURED photocurrents — DONE: agreement with PyRhO
