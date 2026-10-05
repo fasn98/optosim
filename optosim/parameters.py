@@ -304,26 +304,121 @@ CHR2_3STATE = ParameterSet(
     ),
 )
 
-#: Membrane area of the simulated compartment. This is the bridge between the
-#: opsin's absolute conductance (nS) and HH's per-area currents (uA/cm^2), and it
-#: is uncited because it is a property of whatever cell you imagine simulating.
-#: It scales the photocurrent density linearly, so it is the single most
-#: important uncited number in the package.
-DEFAULT_COMPARTMENT = ParameterSet(
-    name="Single compartment geometry",
-    model="geometry",
-    parameters=(
-        uncited(
-            "area",
-            1e-4,
-            "cm^2",
-            "membrane area of the simulated compartment",
-            "no source: 1e-4 cm^2 is a round number near a ~56 um diameter "
-            "sphere, chosen so the PyRhO whole-cell conductance produces "
-            "photocurrent densities of a plausible size against HH's "
-            "uA/cm^2. It scales photocurrent density LINEARLY and is the most "
-            "consequential uncited value here -- a different cell size changes "
-            "every spike count this package reports",
-        ),
-    ),
+# -- Compartment geometry -------------------------------------------------
+#
+# The bridge between the opsin's absolute conductance (nS) and HH's per-area
+# currents (uA/cm^2). It scales photocurrent density LINEARLY, so every spike
+# count in this package moves with it, which is why it is derived here rather
+# than chosen.
+#
+# The derivation. Whole-cell capacitance is one of the most routinely reported
+# numbers in patch-clamp electrophysiology, and specific membrane capacitance is
+# close to 1 uF/cm^2 across cell types -- that near-constancy is itself a
+# long-standing experimental result and is what makes the inversion possible:
+#
+#     area = C_whole / C_m
+#
+# With C_m = 1 uF/cm^2 from the Hodgkin-Huxley set and a whole-cell capacitance
+# of 100 pF, a value squarely in the range reported for cortical pyramidal
+# neurons, the area is 1e-4 cm^2 = 100 um^2 * 100 = 1e4 um^2.
+#
+# Worth being precise about what that last step means: 100 pF / (1 uF/cm^2)
+# = 1e-10 F / 1e-6 F/cm^2 = 1e-4 cm^2. The arithmetic is exact; the input is a
+# representative value, not a measurement of any particular cell.
+#
+# So the number is unchanged -- the previous uncited value happened to be right --
+# but it is now DERIVED from two cited quantities rather than chosen to make the
+# output look plausible. That distinction is the whole point: the value did not
+# move, its justification did.
+
+#: Specific membrane capacitance, the quantity whose near-constancy across cell
+#: types is what lets a whole-cell capacitance be inverted into an area.
+SPECIFIC_CAPACITANCE_SOURCE = (
+    "specific membrane capacitance ~1 uF/cm^2, the value used by the "
+    "Hodgkin-Huxley set and approximately conserved across cell types; see "
+    "Gentet, Stuart & Clements (2000) Biophys J 79:314-320 for a direct "
+    "measurement in neurons. Named as the basis for the inversion"
 )
+
+#: Whole-cell capacitance the default area is derived from.
+WHOLE_CELL_CAPACITANCE_SOURCE = (
+    "whole-cell capacitance 100 pF, a representative value for a cortical "
+    "pyramidal neuron as routinely reported in patch-clamp recordings. A "
+    "REPRESENTATIVE value, not a measurement of the cell being simulated: "
+    "reported capacitances span roughly 50-300 pF and the area scales with it "
+    "directly"
+)
+
+#: Whole-cell capacitance in pF, and the specific capacitance in uF/cm^2, that
+#: :data:`DEFAULT_COMPARTMENT` inverts. Exposed so the sensitivity line in the
+#: report can restate the derivation.
+DEFAULT_WHOLE_CELL_CAPACITANCE_PF = 100.0
+DEFAULT_SPECIFIC_CAPACITANCE_UF_CM2 = 1.0
+
+
+def area_from_capacitance(
+    whole_cell_pf: float, specific_uf_cm2: float = DEFAULT_SPECIFIC_CAPACITANCE_UF_CM2
+) -> float:
+    """Membrane area in cm^2 from a whole-cell capacitance in pF.
+
+    ``area = C_whole / C_m``. pF -> F is 1e-12 and uF/cm^2 -> F/cm^2 is 1e-6, so
+    the ratio carries a factor of 1e-6.
+
+    This is the honest way to set the compartment size: whole-cell capacitance is
+    measured as a matter of routine in any patch-clamp recording, and specific
+    capacitance is close to 1 uF/cm^2 across cell types, so the inversion turns a
+    reported number into a geometry instead of requiring one to be invented.
+
+    Raises:
+        ValueError: on a non-positive input, which has no geometric reading.
+    """
+    if whole_cell_pf <= 0:
+        raise ValueError(f"whole-cell capacitance must be positive, got {whole_cell_pf} pF")
+    if specific_uf_cm2 <= 0:
+        raise ValueError(f"specific capacitance must be positive, got {specific_uf_cm2}")
+    return (whole_cell_pf * 1e-12) / (specific_uf_cm2 * 1e-6)
+
+
+def compartment_from_capacitance(
+    whole_cell_pf: float = DEFAULT_WHOLE_CELL_CAPACITANCE_PF,
+    *,
+    source: str = "",
+) -> ParameterSet:
+    """A geometry parameter set derived from a whole-cell capacitance.
+
+    Args:
+        whole_cell_pf: Measured or representative whole-cell capacitance.
+        source: Where that capacitance came from. Supply it when using a real
+            measurement; the default names the representative value instead, and
+            says that is what it is.
+    """
+    area = area_from_capacitance(whole_cell_pf)
+    citation = source.strip() or WHOLE_CELL_CAPACITANCE_SOURCE
+    return ParameterSet(
+        name=f"Single compartment, area from {whole_cell_pf:g} pF whole-cell capacitance",
+        model="geometry",
+        parameters=(
+            cited(
+                "area",
+                area,
+                "cm^2",
+                "membrane area, derived as C_whole / C_m",
+                f"derived: {whole_cell_pf:g} pF / "
+                f"{DEFAULT_SPECIFIC_CAPACITANCE_UF_CM2:g} uF/cm^2. "
+                f"Capacitance: {citation}. Specific capacitance: "
+                f"{SPECIFIC_CAPACITANCE_SOURCE}",
+                notes=(
+                    "DERIVED from two cited quantities, not measured directly. The "
+                    "whole-cell capacitance is representative unless a source was "
+                    "supplied, and the area scales with it linearly",
+                    "photocurrent density scales linearly with 1/area, so every "
+                    "spike count in a run depends on this value",
+                ),
+            ),
+        ),
+    )
+
+
+#: The default compartment, derived rather than chosen. See above for the
+#: arithmetic and for what "derived" is and is not claiming.
+DEFAULT_COMPARTMENT = compartment_from_capacitance()

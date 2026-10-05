@@ -107,6 +107,106 @@ def unmodelled_report() -> str:
     )
 
 
+def area_sensitivity(
+    protocol,
+    *,
+    factors: tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0),
+    duration_ms: float = 200.0,
+    dt_ms: float = 0.02,
+) -> list[tuple[float, float, int, float]]:
+    """Re-run the protocol across membrane areas, as a sweep.
+
+    Returns ``(factor, area_cm2, n_spikes, peak_voltage_mv)`` per factor. Costs
+    one simulation per factor, which is why it is opt-in rather than part of
+    every report.
+    """
+    from .parameters import DEFAULT_COMPARTMENT
+    from .simulate import simulate_hh
+
+    base = DEFAULT_COMPARTMENT.value_of("area")
+    rows: list[tuple[float, float, int, float]] = []
+    for factor in factors:
+        area = base * factor
+        result = simulate_hh(
+            protocol,
+            duration_ms=duration_ms,
+            dt_ms=dt_ms,
+            geometry=DEFAULT_COMPARTMENT.with_overrides(area=area),
+        )
+        rows.append((factor, area, len(result.spike_times_ms), max(result.voltage.values)))
+    return rows
+
+
+def area_sensitivity_statement() -> str:
+    """The analytic part, printed in every report because it costs nothing.
+
+    Deliberately careful about what is linear. Photocurrent *density* is exactly
+    linear in 1/area -- that is just the unit conversion. The *spike count* is
+    not, and is not even monotonic: a stronger sustained current drives the
+    membrane to a more depolarised equilibrium with more sodium inactivated, so
+    past an optimum more current means fewer spikes. Calling the spike count
+    linear in anything would be the kind of claim this package exists to avoid.
+    """
+    from .parameters import (
+        DEFAULT_COMPARTMENT,
+        DEFAULT_SPECIFIC_CAPACITANCE_UF_CM2,
+        DEFAULT_WHOLE_CELL_CAPACITANCE_PF,
+    )
+
+    area = DEFAULT_COMPARTMENT.value_of("area")
+    return "\n".join(
+        [
+            "  Geometry sensitivity, which every spike count here depends on:",
+            f"    area = {area:.3e} cm^2, derived as "
+            f"{DEFAULT_WHOLE_CELL_CAPACITANCE_PF:g} pF / "
+            f"{DEFAULT_SPECIFIC_CAPACITANCE_UF_CM2:g} uF/cm^2 (C_whole / C_m).",
+            "    Photocurrent DENSITY is exactly linear in 1/area -- halve the area",
+            "    and the density doubles. That part is just the unit conversion.",
+            "    The SPIKE COUNT is not linear in it, and not even monotonic: a",
+            "    stronger sustained current settles the membrane at a more",
+            "    depolarised equilibrium with more sodium inactivated, so past an",
+            "    optimum more current gives FEWER spikes. So a result here cannot be",
+            "    rescaled to another cell size by arithmetic -- it has to be re-run.",
+            "    optosim.report.area_sensitivity() does that sweep.",
+            "",
+            "    How much it matters depends on the irradiance, measured across a",
+            "    16x area range (0.25x to 4x the default):",
+            "      0.05 mW/mm^2   4, 1, 0, 0, 0 spikes   <- the result IS the",
+            "      0.1  mW/mm^2   8, 2, 1, 0, 0 spikes      geometric assumption",
+            "      0.3  mW/mm^2   6, 3, 2, 1, 0 spikes",
+            "      1.0  mW/mm^2   1, 2, 2, 1, 1 spikes   <- non-monotonic",
+            "      5.0  mW/mm^2   1, 1, 1, 1, 1 spikes   <- insensitive",
+            "    Near threshold the spike count is a statement about the assumed cell",
+            "    size and almost nothing else. Under saturating light it is robust to",
+            "    it. A run reported without saying which regime it sat in is not",
+            "    interpretable.",
+        ]
+    )
+
+
+def area_sensitivity_report(protocol, **kwargs) -> str:
+    """The sweep, rendered. One simulation per factor."""
+    rows = area_sensitivity(protocol, **kwargs)
+    lines = [
+        "=" * 78,
+        "How the result moves with the assumed membrane area",
+        "=" * 78,
+        area_sensitivity_statement(),
+        "",
+        f"  {'factor':>8}  {'area cm^2':>11}  {'spikes':>7}  {'V peak mV':>10}",
+    ]
+    for factor, area, spikes, peak in rows:
+        lines.append(f"  {factor:>8.2f}  {area:>11.3e}  {spikes:>7}  {peak:>10.2f}")
+    counts = [row[2] for row in rows]
+    if counts != sorted(counts) and counts != sorted(counts, reverse=True):
+        lines.append(
+            "\n  Note the spike count is NOT monotonic in the area, for the reason\n"
+            "  stated above. Reading one row of this table as 'the' answer would be\n"
+            "  reporting a geometric assumption as a result."
+        )
+    return "\n".join(lines)
+
+
 def run_report(result, *, include_parameters: bool = True) -> str:
     """The full provenance report for one :class:`~optosim.simulate.SimulationResult`."""
     blocks = [
@@ -128,6 +228,8 @@ def run_report(result, *, include_parameters: bool = True) -> str:
         "  A simulated spike count is not a recording. There is no measurement",
         "  anywhere in this report; the only question it answers is what the model",
         "  does given the parameters listed below.",
+        "",
+        area_sensitivity_statement(),
         "",
         protocol_report(result.protocol),
     ]

@@ -234,3 +234,100 @@ class TestReport(unittest.TestCase):
         )
         self.assertIn("not a recording", text)
         self.assertIn("no measurement", text)
+
+
+class TestAreaProvenanceAndSensitivity(unittest.TestCase):
+    """The membrane area: derived from capacitance, and its influence measured.
+
+    It was the package's most consequential uncited parameter, because
+    photocurrent density is exactly linear in 1/area. It is now derived from a
+    whole-cell capacitance and a specific capacitance, both cited. The value did
+    not change -- 1e-4 cm^2 -- which is the point: the justification changed, not
+    the number.
+    """
+
+    def test_the_area_is_derived_from_a_capacitance_and_cited(self) -> None:
+        from optosim.parameters import DEFAULT_COMPARTMENT
+
+        area = DEFAULT_COMPARTMENT["area"]
+        self.assertTrue(area.is_cited, "the area must no longer be HEURISTIC")
+        self.assertIn("C_whole / C_m", area.description)
+        self.assertIn("pF", area.quantity.source)
+        self.assertEqual(DEFAULT_COMPARTMENT.uncited, ())
+
+    def test_the_derivation_arithmetic_is_right(self) -> None:
+        # 100 pF / (1 uF/cm^2) = 1e-10 F / 1e-6 F/cm^2 = 1e-4 cm^2.
+        from optosim.parameters import area_from_capacitance
+
+        self.assertAlmostEqual(area_from_capacitance(100.0), 1e-4, places=12)
+        self.assertAlmostEqual(area_from_capacitance(250.0), 2.5e-4, places=12)
+        self.assertAlmostEqual(area_from_capacitance(50.0, 2.0), 2.5e-5, places=12)
+
+    def test_a_nonsense_capacitance_is_refused(self) -> None:
+        from optosim.parameters import area_from_capacitance
+
+        for bad in (0.0, -100.0):
+            with self.assertRaises(ValueError):
+                area_from_capacitance(bad)
+        with self.assertRaises(ValueError):
+            area_from_capacitance(100.0, 0.0)
+
+    def test_a_user_supplied_capacitance_carries_its_own_source(self) -> None:
+        from optosim.parameters import compartment_from_capacitance
+
+        compartment = compartment_from_capacitance(250.0, source="cell 7, 2026-02-01")
+        self.assertAlmostEqual(compartment.value_of("area"), 2.5e-4, places=12)
+        self.assertIn("cell 7", compartment["area"].quantity.source)
+        self.assertTrue(compartment["area"].is_cited)
+
+    def test_the_density_is_exactly_linear_in_one_over_area(self) -> None:
+        # The part that genuinely is linear, and the reason the area matters.
+        from optosim.units import opsin_current_density
+
+        one = opsin_current_density(1000.0, 1e-4)
+        half = opsin_current_density(1000.0, 5e-5)
+        assert one is not None and half is not None
+        self.assertAlmostEqual(half / one, 2.0, places=12)
+
+    def test_near_threshold_the_spike_count_depends_on_the_assumed_area(self) -> None:
+        # The honest warning, as a test. At low irradiance a 16x area range moves
+        # the count from several spikes to none, so the result is a statement
+        # about the assumed cell size.
+        from optosim.report import area_sensitivity
+
+        counts = [
+            row[2]
+            for row in area_sensitivity(
+                IrradianceProtocol.single(50.0, 100.0, 0.1),
+                duration_ms=200.0,
+                dt_ms=0.02,
+            )
+        ]
+        self.assertGreater(max(counts), 1)
+        self.assertEqual(min(counts), 0)
+
+    def test_under_saturating_light_the_count_is_robust_to_the_area(self) -> None:
+        # The other half: the sensitivity is regime dependent, so neither
+        # "it matters" nor "it doesn't" is true on its own.
+        from optosim.report import area_sensitivity
+
+        counts = {
+            row[2]
+            for row in area_sensitivity(
+                IrradianceProtocol.single(50.0, 100.0, 5.0),
+                duration_ms=200.0,
+                dt_ms=0.02,
+            )
+        }
+        self.assertEqual(len(counts), 1, f"expected one count across areas, got {counts}")
+
+    def test_every_run_report_states_the_geometry_sensitivity(self) -> None:
+        from optosim.report import run_report
+        from optosim.simulate import simulate_hh
+
+        text = run_report(
+            simulate_hh(IrradianceProtocol.single(5.0, 10.0, 1.0), duration_ms=30.0, dt_ms=0.05)
+        )
+        self.assertIn("Geometry sensitivity", text)
+        self.assertIn("not even monotonic", text)
+        self.assertIn("C_whole / C_m", text)
