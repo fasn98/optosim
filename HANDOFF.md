@@ -3,54 +3,46 @@
 What is pending and what is unverified. `README.md` carries the method and the
 measurements; this file is only the open work.
 
-Repository state at handoff: core complete, 91 tests passing, one validation
-anchor measured and one explicitly not.
+Repository state at handoff: core complete, 108 tests passing, agreement with
+PyRhO measured trace against trace, and the membrane area derived from a cited
+capacitance. The open items are scientific rather than structural.
 
 ## Run these first
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q                                      # expect 91 passed
-python scripts/validate_opsin.py               # numerics PASS, agreement UNVERIFIED
+pytest -q                                      # expect 108 passed
+python scripts/validate_opsin.py --irradiance 1    # numerics, algebra, agreement
+python scripts/validate_opsin.py --irradiance 10   # all three again at 10x flux
 ```
 
 ## Pending work, most important first
 
-### 1. Agreement with PyRhO is UNVERIFIED
+### 1. Validate against MEASURED photocurrents — DONE: agreement with PyRhO
 
-**The top open item, and the one most likely to be mistaken for done** — the
-numerics validation passes to machine precision, which looks like a green tick
-and is answering a different question.
+Agreement with PyRhO is now **verified trace against trace**: max |dO| of
+**1.739e-08** at 1 mW/mm² and **3.389e-08** at 10 mW/mm², against a 1e-3 bar. The
+residual is at `odeint`'s own tolerance scale, so it is the reference's
+integration error, not an equation mismatch. Details in the README.
 
-What is validated: the integrator reproduces the exact matrix-exponential
-solution (5.66e-15), and the converged open fraction matches PyRhO's published
-closed-form steady state (relative 1.148e-12). Both concern the *algebra and the
-numerics*, which are the parts this package controls.
+Reference traces are committed in `runs/pyrho_reference_{1,10}mw.json` so tests
+run without PyRhO, which cannot be installed alongside optosim — it needs Python
+3.9 and `numpy<1.20`. Regenerate with `scripts/pyrho_reference.py` in the 3.9
+environment (see its docstring for the exact pins).
 
-What is not: whether the model's **transient** agrees with PyRhO's. That is where
-photocycle implementations actually diverge, and the closed form cannot see it.
+**What is still open is the harder question.** Agreeing with PyRhO shows the
+equations were transcribed correctly. It says nothing about whether the
+three-state photocycle describes ChR2. The remaining validation is against
+**measured** photocurrents — digitised published traces, or recordings — and that
+has not been attempted.
 
-Why it is not done: PyRhO 0.9.4 installs but does not import under Python 3.12.
-`PyRhOparameters` subclasses lmfit's `Parameters` and calls
-`OrderedDict.__setitem__` on itself; lmfit moved `Parameters` off `OrderedDict`.
-Pinning lmfit to the 0.9.x series PyRhO's own source names fails because that
-series does not build on 3.12, and only 3.12 is on this machine.
-
-**PyRhO was deliberately not patched.** A deviation measured against a modified
-reference means nothing. Options, in the order I would try them:
-
-1. A Python 3.9/3.10 environment (conda, docker, pyenv) where PyRhO's pinned
-   dependency set installs. Cleanest, and leaves the reference untouched.
-2. Digitised published ChR2 photocurrent traces as the reference instead. Also
-   leaves PyRhO alone, and is arguably a better anchor — it compares against a
-   recording rather than another simulator.
-3. Reimplement PyRhO's integration independently and compare. Weakest: two
-   implementations of the same equations agreeing says little.
-
-Report the deviation whatever it is. If it diverges, investigate before adjusting
-anything — the README records one case where a confident expectation about this
-model was simply the wrong sign.
+Note what would make that comparison hard, and plan for it: a recording carries
+the cell's own expression level and geometry, so a mismatch in absolute current
+amplitude would be uninformative. The shape is the testable part — the
+peak-to-plateau ratio, the rise time, and the off-decay. This model's ratios are
+2.22 at 1 mW/mm² and 2.83 at 10, which sit in the reported range but have never
+been compared with a specific trace.
 
 ### 2. The four-state photocycle
 
@@ -72,15 +64,19 @@ Irradiance is the value at the opsin and `depth_note()` says so in every report.
 Until it exists, no number here can be related to a light source at the surface.
 That is the single largest gap between this package and an experiment.
 
-### 4. The membrane area is uncited and matters most
+### 4. The membrane area — DONE, and the sensitivity is now measured
 
-`DEFAULT_COMPARTMENT["area"]` is `1e-4 cm^2`, chosen so PyRhO's whole-cell
-conductance gives photocurrent densities of a plausible size against HH's
-`uA/cm^2`. It scales photocurrent density **linearly**, so every spike count in
-the README moves with it.
+Derived from `C_whole / C_m` = 100 pF / 1 µF/cm² = 1e-4 cm², both cited.
+`compartment_from_capacitance()` takes a measured capacitance with its own
+source. The value did not change; its justification did.
 
-Either source it from a real preparation, or make the sweep explicit and report
-spike counts as a function of it rather than at one arbitrary value.
+The sensitivity is measured and printed in every report, and it is **regime
+dependent**: near threshold a 16× area range moves the spike count from 8 to 0,
+while under saturating light it does not move at all. See the README table.
+
+What remains, and it is a reporting habit rather than code: a run near threshold
+should state the regime it sat in, because there the spike count is a statement
+about the assumed cell size and almost nothing else.
 
 ### 5. The baseline's uncited parameters
 
@@ -90,11 +86,26 @@ therefore partly a property of those three choices. A sensitivity sweep over the
 would say how much, and would turn the gap from an illustration into a
 measurement.
 
-### 6. Temperature
+### 6. Temperature: no Q10 correction — a real scientific gap
 
-HH rates are at the source's temperature with no Q10 correction, so the package
-currently runs squid axon kinetics against a mammalian opsin fit. A Q10 term is
-small work and would remove an obvious objection.
+The package runs **squid axon kinetics at squid axon temperature** driving a
+**mammalian** opsin fit. The Hodgkin-Huxley rate expressions are used exactly as
+published, with no temperature scaling, and the ChR2 fit comes from mammalian
+cell recordings at a different temperature again.
+
+Channel kinetics are strongly temperature dependent — rates typically change
+severalfold over the gap between squid-axon and mammalian body temperature — so
+the spike counts this package reports are not what the same protocol would
+produce at 37 °C. This is not a stylistic omission to be noted in passing; it
+limits what any number here can be compared with.
+
+A Q10 factor on the HH rates is small work. The harder part is being honest about
+what the reference temperatures actually were for each parameter set, and whether
+scaling the HH rates while leaving the opsin fit unscaled is coherent at all. Do
+not add a Q10 term that silently assumes both sets share a reference temperature.
+
+Deliberately not fixed in the current round of work, and recorded here rather
+than left to be noticed.
 
 ## Settled, so it does not get re-litigated
 
@@ -110,6 +121,10 @@ small work and would remove an obvious objection.
   module reaches an RNG unallowlisted. The allowlist is empty on purpose; two
   identical runs agree bit for bit. If stochastic gating is ever added, it goes on
   the allowlist with a reason, not in quietly.
+- **PyRhO needs its own Python 3.9 environment** and is not installable beside
+  optosim. The reference traces are committed so nothing routine depends on it.
+  Do not patch PyRhO to make it run here; a deviation measured against a modified
+  reference would mean nothing.
 - **`provenance.py` is a verbatim port.** It will drift from chemdisco's copy.
   When a third project wants it, make it a shared dependency rather than a third
   copy.

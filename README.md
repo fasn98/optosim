@@ -45,18 +45,55 @@ citation by being changed and can never gain one.
 | Hodgkin-Huxley (squid axon) | 8 | 0 |
 | ChR2 three-state (PyRhO fit) | 11 | 0 |
 | Integrate-and-fire baseline | 6 | **3** |
-| Compartment geometry | 1 | **1** |
+| Compartment geometry | 1 | 0 — *derived, see below* |
 
 What "cited" does **not** mean: a constant fitted by its authors to *their*
 preparation is traceable to published work, not measured in the cell being
 simulated. This is squid axon kinetics at squid axon temperature driving a
 mammalian opsin fit, with no Q10 correction.
 
-The four uncited values are the LIF threshold, reset and refractory period — LIF
-has no canonical parameter set, it is phenomenological — and the **membrane
-area**. That last one is the most consequential number in the package: it scales
-photocurrent density linearly, so a different cell size changes every spike count
-reported here.
+The three remaining uncited values are the LIF threshold, reset and refractory
+period — LIF is phenomenological and has no canonical parameter set.
+
+### The membrane area, and what it controls
+
+This was the most consequential uncited number in the package, because
+photocurrent density is exactly linear in 1/area. It is now **derived** from two
+cited quantities rather than chosen:
+
+```
+area = C_whole / C_m = 100 pF / 1 uF/cm^2 = 1e-4 cm^2
+```
+
+The inversion works because specific membrane capacitance is close to 1 µF/cm²
+across cell types, while whole-cell capacitance is measured routinely in any
+patch-clamp recording. `compartment_from_capacitance()` accepts a measured
+capacitance with its own source; the default states that 100 pF is
+*representative* of a cortical pyramidal neuron and that reported values span
+roughly 50–300 pF. **The value did not change — its justification did.**
+
+The sensitivity is the more useful half, and it is regime dependent. Spike counts
+across a 16× area range (0.25× to 4× the default):
+
+| Irradiance | 0.25× | 0.5× | 1× | 2× | 4× | |
+|---|---|---|---|---|---|---|
+| 0.05 mW/mm² | 4 | 1 | 0 | 0 | 0 | the result **is** the assumption |
+| 0.1 mW/mm² | 8 | 2 | 1 | 0 | 0 | |
+| 0.3 mW/mm² | 6 | 3 | 2 | 1 | 0 | |
+| 1.0 mW/mm² | 1 | 2 | 2 | 1 | 1 | non-monotonic |
+| 5.0 mW/mm² | 1 | 1 | 1 | 1 | 1 | insensitive |
+
+Near threshold the spike count is a statement about the assumed cell size and
+almost nothing else. Under saturating light it is entirely robust to it. So
+neither "the area matters" nor "it doesn't" is true on its own, and **a run
+reported without saying which regime it sat in is not interpretable.** Every run
+report prints this.
+
+Note which quantity the linearity belongs to: the *density* is exactly linear in
+1/area — that is just the unit conversion. The *spike count* is not, and is not
+even monotonic, because a stronger sustained current settles the membrane at a
+more depolarised equilibrium with more sodium inactivated. A result cannot be
+rescaled to another cell size by arithmetic; it has to be re-run.
 
 ## Architecture
 
@@ -109,32 +146,47 @@ Integration error limits nothing this package reports.
 The converged open fraction also matches the closed form PyRhO publishes for
 this model — `Ga·Gr / (Gd·(Gr+Ga) + Ga·Gr)` — to a relative `1.148e-12`.
 
-### Agreement with PyRhO: NOT VERIFIED
+### Agreement with PyRhO: verified, trace against trace
 
-This is the part that did not work, and it is reported as a result rather than
-omitted.
+| Irradiance | max \|O_optosim − O_pyrho\| | at |
+|---|---|---|
+| 1 mW/mm² | **1.739e-08** | 0.70 ms |
+| 10 mW/mm² | **3.389e-08** | 1.76 ms |
 
-The intended anchor was PyRhO itself, run on the same light pulse, with the
-deviation reported. PyRhO 0.9.4 installs and **does not import** under Python
-3.12: its `PyRhOparameters` subclasses lmfit's `Parameters` and calls
-`OrderedDict.__setitem__` on itself, which broke when lmfit moved `Parameters`
-off `OrderedDict`. Pinning lmfit to the 0.9.x series PyRhO's own source names
-does not help — that series does not build on 3.12 — and only 3.12 is available
-on this machine.
+Against a 1e-3 bar for correct transcription — five orders of margin. The
+residual sits at the scale of `odeint`'s own default tolerance (~1.5e-8), so it
+is the reference's integration error rather than a disagreement in the equations.
+That bounds agreement at that level; it does not prove exact equality.
 
-**PyRhO was not patched.** Editing the reference until it agrees is not a
-validation, and a deviation measured against a modified reference would mean
-nothing.
+**Why this was needed when the steady state already agreed to 1e-12.** The steady
+state is *one* equation in three rates. A transcription error shifting `Ga` and
+`Gr` in compensating directions would satisfy it and surface only in the
+transient. Both irradiances are checked because `Ga` and `Gr` have different Hill
+exponents (p = 0.8, q = 0.25) and scale differently with flux, so a cancellation
+at one would not survive a tenfold change. Both agree.
 
-So: numerics validated, **model agreement unverified**. What was salvaged without
-executing it is PyRhO's parameter table, read from source and cited to file and
-line, plus the closed-form steady state used above. That checks the algebra
-against the reference's own stated result; it cannot catch a disagreement in the
-*transient*, which is where photocycle models are most likely to differ.
+**Getting PyRhO to run took a pinned chain**, diagnosed rather than guessed:
+`PyRhOparameters` needs lmfit's pre-1.0 `Parameters` → pre-1.0 lmfit imports
+`numpy.dual` → removed in numpy 1.20 → numpy 1.19 is the last release building on
+Python 3.9. So 3.10 fails too (the first attempt died there on `numpy.dual`). The
+reference runs under micromamba + Python 3.9 + `numpy<1.20` + `lmfit<1.0` +
+`pyrho`, plus `ipywidgets`, which PyRhO's GUI module imports unconditionally and
+its metadata omits.
 
-Encouraging, and not evidence of agreement: the peak-to-plateau ratio this model
-produces — **2.22** at 1 mW/mm², **2.83** at 10 — sits in the range reported for
-ChR2.
+**PyRhO was not patched.** Installing a package's dependencies is not editing it.
+Nothing from optosim takes part in producing the reference: `scripts/pyrho_reference.py`
+uses PyRhO's parameter table, its `solveStates` right-hand side, its analytic
+Jacobian, and the same `odeint` call its own simulator makes
+(`simulators.py:210`). It even restates the irradiance→flux conversion locally
+rather than importing optosim's, so a shared error there cannot cancel out and
+leave the comparison looking clean.
+
+**What this does not establish:** that the three-state photocycle is right about
+*ChR2*. Agreeing with PyRhO means the equations were transcribed correctly.
+Validating against measured photocurrents is a separate job and remains undone.
+The peak-to-plateau ratio — **2.22** at 1 mW/mm², **2.83** at 10 — sits in the
+range reported for ChR2, which is encouraging and is not a comparison with a
+recording.
 
 ### A correction this produced
 
@@ -213,7 +265,11 @@ Stated here so it does not have to be inferred from a missing function:
   trafficking and membrane distribution.
 - **Spatial structure.** One isopotential compartment. No dendrites, no axon, no
   propagation.
-- **Temperature.** HH rates at the source's temperature, no Q10 correction.
+- **Temperature — a real scientific gap, not a stylistic one.** The HH rates are
+  at the source's temperature with no Q10 correction, so this runs *squid axon
+  kinetics at squid axon temperature* driving a *mammalian* opsin fit. Channel
+  kinetics are strongly temperature dependent, so the spike counts here are not
+  what the same protocol would produce at 37 °C. Pending in HANDOFF.
 - **Everything other than three HH conductances plus the photocurrent.** No
   calcium, no chloride, no pumps, no adaptation.
 - **Four-state photocycle.** One open state, so off-kinetics are
