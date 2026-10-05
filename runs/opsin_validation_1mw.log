@@ -1,0 +1,122 @@
+/root/optosim/.venv/lib/python3.12/site-packages/pyrho/__init__.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import get_distribution, DistributionNotFound
+
+==============================================================================
+0. Reference availability
+==============================================================================
+  PyRhO importable in THIS interpreter: False
+  detail: TypeError: descriptor '__setitem__' requires a 'collections.OrderedDict' object but received a 'PyRhOparameters'
+
+  Stored PyRhO reference found: version 0.9.4, numpy 1.19.5, 20001 samples
+  Produced in a separate Python 3.9 environment because PyRhO cannot
+  run on 3.12. PyRhO itself was not modified.
+
+==============================================================================
+1. Numerics: fixed-step RK4 against the exact solution
+==============================================================================
+  1.0 mW/mm^2 = 2.3660e+15 photons/mm^2/s
+  Ga 0.068086  Gd 0.104000  Gr 0.020978  (per ms)
+
+  Under constant light the rates are constant, so the system is linear
+  and expm(At)x0 is exact. This is a test of the integration, not of the
+  biology.
+
+  samples compared:                20001
+  max |O_numeric - O_exact|:       5.662e-15  (at t = 7.37 ms)
+  as a fraction of the peak:       1.907e-14
+  max |C+O+D - 1|:                 5.218e-15
+
+  VERDICT: PASS against a 1e-06 absolute tolerance on the open fraction.
+  The integrator reproduces the exact solution to well under the
+  precision any parameter here is known to, so integration error is
+  not a limit on anything this package reports.
+
+==============================================================================
+2. Algebra: converged open fraction against PyRhO's closed form
+==============================================================================
+  PyRhO documents I_SS proportional to Ga*Gr / (Gd*(Gr+Ga) + Ga*Gr).
+  Read from its source, not executed. This checks the algebra against the
+  reference's own stated result; it cannot check the transient.
+
+  closed form:                     0.1336002461
+  converged exact solution:        0.1336002461
+  absolute deviation:              1.533e-13
+  relative deviation:              1.148e-12
+
+  VERDICT: PASS
+
+==============================================================================
+3. Agreement: this implementation against PyRhO, trace for trace
+==============================================================================
+  reference: PyRhO 0.9.4 (Python 3.9 env)
+  samples compared:                20001
+  peak O, this package:            0.296976973
+  peak O, PyRhO:                   0.296976974
+  max |O_optosim - O_pyrho|:       1.739e-08  (at t = 0.7 ms)
+  as a fraction of the peak:       5.857e-08
+
+  VERDICT: PASS against a 0.001 absolute tolerance on the open fraction.
+  The independently written three-state equations reproduce PyRhO's
+  transient. The residual is at the scale of odeint's own default
+  tolerance (~1.5e-8), so it is the reference's integration error
+  rather than a disagreement in the equations -- this bounds
+  agreement at that level rather than proving exact equality.
+
+  What it rules out, which the steady state could not: a
+  transcription error shifting Ga and Gr in compensating
+  directions. Those have different Hill exponents (p 0.8, q 0.25)
+  and scale differently with flux, so a cancellation at one
+  irradiance would not survive a tenfold change -- run this at both
+  1 and 10 mW/mm^2 and both agree.
+
+==============================================================================
+4. What this does and does not establish
+==============================================================================
+  Established: the photocycle is integrated correctly (exact solution),
+  the steady state agrees with PyRhO's published closed form, and -- when
+  a reference is present -- the full transient agrees with PyRhO's own
+  integration of its own equations.
+
+  NOT established: that the model describes real ChR2. Agreeing with
+  PyRhO means the equations were transcribed correctly, not that the
+  three-state photocycle is right about the protein. The peak-to-plateau
+  ratio (2.22 at 1 mW/mm^2, 2.83 at 10) sits in the range reported for
+  ChR2, which is encouraging and is still not a comparison against a
+  recording. Validating against measured photocurrents is a separate job.
+
+  This is the shape of chemdisco's redocking result: the mechanics check
+  out, and the harder question is labelled rather than answered by a
+  number nobody measured.
+
+Irradiance is specified AT THE OPSIN. Propagation through tissue is not modelled: no absorption, scattering or depth attenuation. Blue light falls off steeply in brain tissue, so these values are not the output of a light source at the surface and must not be read as one. Tissue optics is a future layer, not an effect already included.
+
+=== JSON ===
+{
+  "irradiance_mw_mm2": 1.0,
+  "photon_flux": 2366034786745074.0,
+  "dt_ms": 0.01,
+  "duration_ms": 200.0,
+  "n_samples": 20001,
+  "max_abs_open_fraction_error": 5.662137425588298e-15,
+  "max_conservation_error": 5.218048215738236e-15,
+  "numerics_pass": true,
+  "steady_state_closed_form": 0.13360024610415938,
+  "steady_state_converged": 0.1336002461043127,
+  "steady_state_relative_deviation": 1.1476161472127763e-12,
+  "algebra_pass": true,
+  "pyrho_importable_here": false,
+  "pyrho_detail": "TypeError: descriptor '__setitem__' requires a 'collections.OrderedDict' object but received a 'PyRhOparameters'",
+  "pyrho_reference_used": {
+    "pyrho_version": "0.9.4",
+    "numpy_version": "1.19.5",
+    "n_samples": 20001
+  },
+  "max_abs_open_fraction_deviation_vs_pyrho": 1.739449333876264e-08,
+  "deviation_at_ms": 0.7000000000000001,
+  "deviation_relative_to_peak": 5.857185868462414e-08,
+  "model_agreement_tolerance": 0.001,
+  "model_agreement_verified": true,
+  "model_agreement_note": "Trace-against-trace against PyRhO 0.9.4 (run in a separate Python 3.9 environment; PyRhO not modified): max |dO| = 1.739e-08. Establishes correct transcription of the equations, NOT that the three-state model is right about ChR2."
+}
+
+Written to runs/opsin_validation_1mw.json

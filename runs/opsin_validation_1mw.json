@@ -1,0 +1,27 @@
+{
+  "irradiance_mw_mm2": 1.0,
+  "photon_flux": 2366034786745074.0,
+  "dt_ms": 0.01,
+  "duration_ms": 200.0,
+  "n_samples": 20001,
+  "max_abs_open_fraction_error": 5.662137425588298e-15,
+  "max_conservation_error": 5.218048215738236e-15,
+  "numerics_pass": true,
+  "steady_state_closed_form": 0.13360024610415938,
+  "steady_state_converged": 0.1336002461043127,
+  "steady_state_relative_deviation": 1.1476161472127763e-12,
+  "algebra_pass": true,
+  "pyrho_importable_here": false,
+  "pyrho_detail": "TypeError: descriptor '__setitem__' requires a 'collections.OrderedDict' object but received a 'PyRhOparameters'",
+  "pyrho_reference_used": {
+    "pyrho_version": "0.9.4",
+    "numpy_version": "1.19.5",
+    "n_samples": 20001
+  },
+  "max_abs_open_fraction_deviation_vs_pyrho": 1.739449333876264e-08,
+  "deviation_at_ms": 0.7000000000000001,
+  "deviation_relative_to_peak": 5.857185868462414e-08,
+  "model_agreement_tolerance": 0.001,
+  "model_agreement_verified": true,
+  "model_agreement_note": "Trace-against-trace against PyRhO 0.9.4 (run in a separate Python 3.9 environment; PyRhO not modified): max |dO| = 1.739e-08. Establishes correct transcription of the equations, NOT that the three-state model is right about ChR2."
+}
