@@ -1,5 +1,7 @@
 # optosim
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23177396.svg)](https://doi.org/10.5281/zenodo.23177396)
+
 A biophysical optogenetics simulator: a single-compartment membrane, a
 channelrhodopsin photocycle, and a light protocol driving them — built so that
 **nothing it emits can be mistaken for a measurement.**
