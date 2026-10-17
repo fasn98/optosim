@@ -150,6 +150,71 @@ not add a Q10 term that silently assumes both sets share a reference temperature
 Deliberately not fixed in the current round of work, and recorded here rather
 than left to be noticed.
 
+## The reprogramming branch: pending work
+
+On `reprogram-sim`. `optosim/reprogram/` is complete and tested (38 tests, 146
+in the suite), and its open items are different in kind from the parent
+package's: there, parameters are cited and the question is what they were fitted
+to. Here **nothing is cited and nothing is calibrated**, so the open work is not
+"improve the numbers" — it is "decide whether this model can be calibrated at
+all, and say so either way".
+
+### 1. Calibration, or an explicit decision not to calibrate
+
+The time axis is arbitrary and every rate is a choice. Two honest routes:
+
+- **Calibrate against published partial-reprogramming time courses.** The
+  observable with a chance of anchoring the clock is the *recovery* of identity
+  markers after withdrawal, since that is a relaxation with a measurable time
+  constant. That would fix `k_rediff` and one time unit, and the rest would
+  remain uncited.
+- **Declare it permanently conceptual** and make the uncalibrated clock a
+  documented feature rather than a pending item.
+
+Do not do the third thing, which is to keep the model uncalibrated while the
+numbers slowly acquire authority through being quoted. If neither route is taken,
+say in the README that neither was.
+
+### 2. The missing mechanism that matters most: proliferation
+
+No cell division anywhere. That is the gap through which the real hazard runs —
+a partially reprogrammed cell that divides is how a damaged clone expands, and a
+model with no division cannot represent it. Adding a proliferation variable
+coupled to `P` is not large work. Being honest about what it would and would not
+then license is the larger part.
+
+Related and harder: the model is structurally blind to the pre-existing-mutation
+pathway, where reprogramming accelerates cancer in an already-mutated cell. A
+`P`-coupled hazard on a mutated subpopulation would need a population model, not
+a single cell, and that is a different package.
+
+### 3. The risk index is ordinal and must stay that way
+
+`R` accumulates time past two conceptual thresholds times an uncited rate. It
+compares protocols within this model. **Nothing should ever map it to a
+probability, an incidence or a hazard rate**, and no amount of calibrating the
+time axis would change that, because the thresholds themselves are invented. If
+a future version wants a real risk estimate, it needs a different model and a
+dataset, not a scaled version of this index.
+
+### 4. The thresholds are scalars standing in for a bistable switch
+
+`theta_commit` treats commitment as a line that can be crossed back over. Real
+commitment is a self-sustaining network state — once in it, withdrawing the
+factors does not return the cell. A bistable `P` nullcline would represent that
+and would change the cyclic-induction result qualitatively, because the current
+model lets every run relax. Worth doing before the cyclic-beats-sustained
+finding is leaned on.
+
+### 5. Matched exposure AND matched recovery, in any new comparison
+
+Recorded because it was got wrong once. The first demo script ran every protocol
+to a fixed end time, which scored the cyclic arms immediately after their last
+pulse while the sustained arm had 200 units of quiet to recover in. Cyclic
+looked worse on final identity for purely schedule-bookkeeping reasons. Any new
+protocol comparison matches both total induction and the post-withdrawal window,
+and `tests/test_reprogram.py` has the matched comparison as a test.
+
 ## Settled, so it does not get re-litigated
 
 - **The three-state model does produce a peak.** It was claimed not to, a test
@@ -168,6 +233,13 @@ than left to be noticed.
   optosim. The reference traces are committed so nothing routine depends on it.
   Do not patch PyRhO to make it run here; a deviation measured against a modified
   reference would mean nothing.
+- **The reprogramming set is entirely uncited on purpose.** A test asserts it.
+  If a parameter there ever gains a citation, that is a real claim and the test
+  is what should force it to be justified rather than slipped in.
+- **The regime label reports every hazard, not the worst one.** A worst-wins
+  ordering printed a better protocol as the worse-sounding one, because the
+  conditions are not mutually exclusive. There is a regression test; do not
+  collapse it back into a single severity rank.
 - **`provenance.py` is a verbatim port.** It will drift from chemdisco's copy.
   When a third project wants it, make it a shared dependency rather than a third
   copy.

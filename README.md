@@ -280,6 +280,143 @@ Stated here so it does not have to be inferred from a missing function:
   if any module reaches a random number generator without being allowlisted with
   a reason. The allowlist is empty, so two identical runs agree bit for bit.
 
+## The reprogramming branch (`optosim.reprogram`)
+
+A second model in the same discipline, on the `reprogram-sim` branch: partial
+cellular reprogramming as a coupled dynamical system. Where the parent package
+drives a membrane with light, this drives a cell's regulatory state with
+reprogramming-factor expression (OSK/OSKM), and asks the question that decides
+whether partial reprogramming is a therapy or a tumour — **can the epigenetic-age
+marker be lowered without the cell losing its identity or committing to
+pluripotency?**
+
+Four lumped variables, factor expression `f(t)` in `[0, 1]` from the protocol:
+
+```
+dP/dt = k_on * potency * f * (1 - P)  -  k_off * P      pluripotency programme
+dI/dt = -k_dediff * P * I  +  k_rediff * (1 - P) * (1 - I)   somatic identity
+dA/dt = -k_rejuv * P * A                                 epigenetic-age marker
+dR/dt =  k_risk * ( relu(P - theta_commit) + relu(theta_identity - I) )   risk index
+```
+
+The structure carries the whole argument: **`A` falls only while `P` is active,
+and `P` is also what erodes `I`.** The benefit and the hazard share a cause, so
+there is no setting at which rejuvenation is free. That is the one thing this
+model is for.
+
+### What it is, stated before the numbers
+
+**Every parameter is uncited, and that is the correct state, not a gap to close
+later.** There is no published parameter set for a four-variable
+phenomenological model of reprogramming; attaching a citation to one of these
+coefficients would launder a modelling choice into a result, which is the single
+failure this package is built to prevent. `parameter_report` lists all nine,
+every run, and a test asserts the set contains no cited parameter.
+
+**The time axis is uncalibrated.** Times are carried in `ms` only because that
+is what the unit registry recognises. One unit is arbitrary model-time — not a
+millisecond, and the model makes no claim about hours, days or cell cycles. Only
+trajectory *shape* and outcome *ordering* mean anything; the clock does not.
+
+The inherited machinery still applies: every trace is `PREDICTED` and cannot be
+constructed otherwise, the integration grid lands exactly on every induction
+edge, and `test_no_fabrication.py` fails the build if any module reaches an RNG.
+
+### Verified: the integrator, against a closed form
+
+Under constant `f` the `P` equation is linear with constant coefficients, so it
+has an exact solution, and `pluripotency_step_response` returns it:
+
+| drive | max \|P_numeric − P_exact\| |
+|---|---|
+| f = 0.25 | **4.791e-14** |
+| f = 1.0 | **2.050e-12** |
+
+Same move as the opsin validation, and it establishes the same narrow thing: the
+arithmetic is right. It says nothing about whether the model describes a cell.
+A potency change moves the analytic anchor too, and a test checks the integrator
+against it there as well — otherwise `potency` could have been wired into the
+integration and not the reference.
+
+### Measured: cyclic induction beats sustained at matched exposure
+
+Every arm delivers **40 units of induction** and gets the **same 150-unit
+recovery window** afterwards:
+
+| protocol | rejuvenation | peak P | min I | risk |
+|---|---|---|---|---|
+| sustained | 0.843 | 0.718 | 0.316 | 2.334 |
+| cyclic ×2 (duty 1/3) | 0.894 | 0.668 | 0.331 | 1.143 |
+| cyclic ×4 | 0.914 | **0.593** | 0.334 | **1.033** |
+| cyclic ×8 | **0.920** | 0.537 | 0.334 | 1.202 |
+
+Cyclic induction reaches **more** rejuvenation at a **lower** peak pluripotency
+and **less** than half the risk index. The mechanism is in the `I` equation:
+identity restores in the gaps, while `A` has no recovery term and so ratchets
+down. There is a test on each of those three inequalities, because they are the
+claim this section makes in prose.
+
+**Matching the recovery window is what makes the comparison valid, and getting
+it wrong is easy.** The first version of the demo script ran each protocol to a
+fixed end time, so the cyclic arms — whose schedules span further — were scored
+almost immediately after their last pulse while the sustained arm had 200 units
+of quiet to recover in. Cyclic looked worse on final identity. That was the
+bookkeeping, not the biology, and the comparison now matches both exposure and
+recovery.
+
+### Measured: potency is not safety
+
+The sweep the news coverage invites. A protocol at `f = 0.3` that crosses no
+threshold at the reference drive, with the drive multiplied:
+
+| potency | rejuvenation | peak P | min I | risk | regime |
+|---|---|---|---|---|---|
+| 1× | 0.609 | 0.393 | 0.587 | **0.000** | no threshold crossed |
+| 2× | 0.767 | 0.588 | 0.420 | 0.000 | identity not recovered |
+| 5× | 0.880 | 0.798 | 0.254 | 5.499 | committed; identity lost |
+| 10× | 0.915 | 0.889 | 0.185 | 10.220 | committed; identity lost |
+
+So in this model a more potent factor does **not** widen the safe window — it
+moves the same protocol out of it, and the protocol has to be re-tuned to get
+back in. That is a property of these equations and nothing else.
+
+**What it is emphatically not.** `potency` is a multiplier on the drive term. A
+published fold-change in pluripotency-*marker expression* — such as the >50×
+reported for the AI-designed RetroSOX/RetroKLF variants (OpenAI/Retro
+Biosciences, 2025) — is an in-vitro measurement of a different quantity, and
+entering it here as a value for `potency` would be exactly the category error
+this package refuses. The sweep asks "what do the equations do if drive rises",
+not "what does that variant do in a cell".
+
+### What the model cannot see
+
+Listed because these are the mechanisms that would matter most, and their
+absence bounds every number above:
+
+- **Cell cycle, proliferation and clonal expansion.** A reprogrammed cell that
+  divides is how a damaged clone grows out. There is no division here.
+- **Pre-existing oncogenic mutations.** The reported interaction in which
+  reprogramming dramatically accelerates cancer in an already-mutated cell has
+  no representation, so this model is **structurally blind** to that pathway —
+  the one a safety argument would most need to address.
+- **Cell-type dependence.** Liver and intestine are where in vivo reprogramming
+  is reported to go wrong first; there is one generic cell here.
+- **Network bistability.** Commitment is a scalar threshold crossing, where in
+  reality it is a self-sustaining network state. A threshold cannot be
+  irreversible; a network state can.
+- Delivery, mosaic expression, population heterogeneity, immune response,
+  senescence and tissue context.
+
+The regime label reports **every** hazard condition a run met rather than the
+worst one. That is a correction: an ordered worst-wins label printed
+`identity lost` for a cyclic arm that was better than a sustained arm it printed
+`committed` for, because the conditions are not mutually exclusive and ranking
+them hid the comparison. There is a regression test.
+
+```bash
+python scripts/reprogram_demo.py --output runs/reprogram_demo.json
+```
+
 ## Installation and running
 
 ```bash
