@@ -1,0 +1,108 @@
+# To be filled by the author(s) at the time of submission
+# -------------------------------------------------------
+
+# Title of the article:
+#  - For a successful replication, it should be prefixed with "[Re]"
+#  - For a failed replication, it should be prefixed with "[¬Re]"
+#  - For other article types, no instruction (but please, not too long)
+title: "[Re] An independent, provenance-carrying re-implementation of the PyRhO three-state channelrhodopsin-2 photocycle"
+
+# List of authors with name, orcid number, email and affiliation
+# Affiliation "*" means contact author (required even for single-authored papers)
+# To include author suffix format name as Last Suffix, First M.I. (e.g. Schackart III, Kenneth E.)
+authors:
+  - name: Fabio Augusto Sales Nogueira
+    orcid: 0009-0001-9303-8707
+    email: fasn98@gmail.com
+    affiliations: 1,*      # * is for contact author
+
+# List of affiliations with code (corresponding to author affiliations), name
+# and address. You can also use these affiliations to add text such as "Equal
+# contributions" as name (with no address).
+affiliations:
+  - code:    1
+    name:    Independent researcher
+    address: São Paulo, Brazil
+
+
+# List of keywords (adding the programming language might be a good idea)
+keywords: optogenetics, channelrhodopsin, ChR2, computational neuroscience, reproducibility, provenance, Python
+
+# Code URL and DOI/SWH (url is mandatory for replication, doi after acceptance)
+# You can get a DOI for your code from Zenodo, or an SWH identifier from
+# Software Heritage.
+#   see https://guides.github.com/activities/citable-code/
+code:
+  - url: https://github.com/fasn98/optosim
+  - doi: 10.5281/zenodo.23177396
+  - swh:
+
+# Data URL and DOI (optional if no data)
+data:
+  - url:
+  - doi:
+
+# Information about the original article that has been replicated
+replication:
+ - cite: "Evans, B. D., Jarvis, S., Schultz, S. R., & Nikolić, K. (2016). PyRhO: A Multiscale Optogenetics Simulation Platform. Frontiers in Neuroinformatics, 10, 8."
+ - bib:  evans2016
+ - url:  https://www.frontiersin.org/articles/10.3389/fninf.2016.00008/full
+ - doi:  10.3389/fninf.2016.00008
+
+# Don't forget to surround abstract with double quotes
+abstract: "optosim is an open-source, single-compartment optogenetics simulator that re-implements, independently and from the published equations, the three-state channelrhodopsin-2 (ChR2) photocycle distributed in the PyRhO platform, coupled to a Hodgkin-Huxley membrane. Under constant illumination the photocycle is linear and has an exact matrix-exponential solution, which the integrator reproduces to about 1e-14; the converged state matches PyRhO's closed-form steady state to about 1e-12; and the full transient agrees with PyRhO's own integration to 1.7e-8 (1 mW/mm2) and 3.4e-8 (10 mW/mm2), confirming that the equations are transcribed correctly. The contribution beyond this confirmation is methodological: every emitted value carries a machine-checkable origin (measured, derived, predicted or heuristic) that can only degrade through a computation, a build-time check forbids randomness on any output path, and the uncited constants and unmodelled physics (no Q10 temperature correction, no tissue optics) are reported on every run. Agreement with PyRhO establishes correct transcription, not that the model describes the real protein."
+
+# Bibliography file (yours)
+bibliography: bibliography.bib
+
+# Type of the article
+# Type can be:
+#  * Editorial
+#  * Letter
+#  * Replication
+type: Replication
+
+# Scientific domain of the article (e.g. Computational Neuroscience)
+#  (one domain only & try to be not overly specific)
+domain: Computational Neuroscience
+
+# Coding language (main one only if several)
+language: Python
+
+
+# To be filled by the author(s) after acceptance
+# -----------------------------------------------------------------------------
+
+# For example, the URL of the GitHub issue where review actually occured
+review:
+  - url:
+
+contributors:
+  - name:
+    orcid:
+    role: editor
+  - name:
+    orcid:
+    role: reviewer
+  - name:
+    orcid:
+    role: reviewer
+
+# This information will be provided by the editor
+dates:
+  - received:
+  - accepted:
+  - published:
+
+# This information will be provided by the editor
+article:
+  - number: # Article number will be automatically assigned during publication
+  - doi:    # DOI from Zenodo
+  - url:    # Final PDF URL (Zenodo or rescience website?)
+
+# This information will be provided by the editor
+journal:
+  - name:   "ReScience C"
+  - issn:   2430-3658
+  - volume:
+  - issue:
