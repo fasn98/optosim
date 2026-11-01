@@ -323,3 +323,11 @@ cannot be installed alongside this package, since it needs Python 3.9 and
 ## Licence
 
 MIT.
+
+## AI assistance
+
+Built with substantial AI assistance (Claude, Anthropic) across
+implementation, analysis and documentation. All scientific decisions,
+execution and verification are the author's, as is responsibility for
+the result. The commit history carries `Co-Authored-By` trailers, so
+the extent of this assistance can be audited directly.
