@@ -38,9 +38,14 @@ PyRhO was NOT modified. Installing its dependencies is not patching it; the only
 thing added beyond its own pins is ``ipywidgets``, which its GUI module imports
 unconditionally and which is genuinely missing from its metadata.
 
-What this writes is PyRhO's own integration of its own equations with its own
-parameters, so the comparison in ``validate_opsin.py`` is a genuine
-trace-against-trace test of optosim's independently written implementation.
+What this writes, stated exactly: PyRhO's own equations, with PyRhO's own fitted
+parameters and PyRhO's own analytic Jacobian, integrated by reproducing the
+``odeint`` call that PyRhO's ``simulators.py`` makes -- not by invoking PyRhO's
+simulator entry point. Nothing from optosim takes part. So the comparison in
+``validate_opsin.py`` is a genuine trace-against-trace test of optosim's
+independently written implementation against PyRhO's equations as PyRhO
+integrates them; it does not exercise PyRhO's simulator-level machinery, and is
+not a claim to have done so.
 
 Why trace-against-trace and not just the steady state: the steady state already
 agrees to 1e-12, but it is ONE equation in three rates. A transcription error

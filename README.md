@@ -334,8 +334,9 @@ or tag you used.
 **What this is honest about being.** The claim is *verified implementation and
 provenance enforced by construction*, not a validated model of ChR2. Specifically:
 the photocycle integrator matches the exact solution to 5.7e-15, the steady state
-matches PyRhO's published closed form to 1.1e-12, and the full transient matches
-PyRhO's own integration to 1.7e-08. That establishes the equations were
+matches PyRhO's published closed form to 1.1e-12, the full transient matches the
+PyRhO reference traces to 1.7e-08, and the photocurrent matches them to 1.9e-04
+pA, which is 5.9e-08 of the peak. That establishes the equations were
 transcribed correctly — **it does not establish that the three-state photocycle
 describes the real protein**, which would need comparison against measured
 photocurrents and has not been attempted.
