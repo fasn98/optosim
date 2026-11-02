@@ -3,9 +3,20 @@
 
 RUNS IN A SEPARATE PYTHON 3.9 ENVIRONMENT, not the optosim venv. PyRhO 0.9.4
 cannot run on 3.12: its ``PyRhOparameters`` needs lmfit's pre-1.0 ``Parameters``,
-pre-1.0 lmfit imports ``numpy.dual``, and ``numpy.dual`` was removed in numpy
-1.20, which is the last version supporting Python 3.9. The chain pins the whole
-environment::
+and pre-1.0 lmfit imports ``numpy.dual``.
+
+The version facts, checked against NumPy's own release notes rather than
+recalled: ``numpy.dual`` was *deprecated* in numpy 1.20 and *removed* in numpy
+1.25; numpy 1.25 still supported Python 3.9-3.11. An earlier version of this
+docstring said it was removed in 1.20 and that 1.20 was the last release
+supporting 3.9. Both were wrong, and the pin below is stricter than the
+constraint it was meant to encode: the requirement is ``numpy<1.25``, not
+``numpy<1.20``.
+
+What that leaves actually forced: Python 3.12 cannot take ``numpy<1.25`` at all,
+because 1.26 is the first numpy to build on 3.12 -- so on 3.12 ``numpy.dual`` is
+gone whatever is pinned, and lmfit<1.0 cannot import. The environment used here
+is therefore sufficient but not minimal, and the looser pin has not been tested::
 
     micromamba create -n pyrho39 -c conda-forge python=3.9 'numpy<1.20'
     pip install 'setuptools<81' 'lmfit<1.0' 'numpy<1.20' pyrho ipywidgets
@@ -88,6 +99,12 @@ def main() -> int:
     open_index = model.stateVars.index("O")
     open_fraction = [float(row[open_index]) for row in solution]
 
+    # PyRhO's ``calcI`` returns NANOAMPS, per its own docstring. optosim works in
+    # picoamps throughout, so the two differ by 1000 and the stored series must
+    # say which it is. It previously did not: this was written under the key
+    # ``current_pa`` while holding nA, which made the reference look like it
+    # disagreed with optosim by three orders of magnitude when the two in fact
+    # agree to 2e-4 pA. The label was wrong; optosim was right.
     currents: list[float] | None
     try:
         currents = [float(model.calcI(args.voltage, states=row)) for row in solution]
@@ -112,7 +129,8 @@ def main() -> int:
         "voltage_mv": args.voltage,
         "times_ms": [float(t) for t in times],
         "open_fraction": open_fraction,
-        "current_pa": currents,
+        "current_na": currents,
+        "current_unit": "nA",
     }
 
     path = pathlib.Path(args.output)

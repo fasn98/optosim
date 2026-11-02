@@ -13,12 +13,15 @@ linear system with an exact matrix-exponential solution. The fixed-step
 integrator is compared against it directly. This tests the numerics, which is
 the part of the problem this package controls.
 
-**Does it agree with PyRhO?** Yes, and measured trace against trace. PyRhO 0.9.4
-cannot run on Python 3.12 -- its ``PyRhOparameters`` needs lmfit's pre-1.0
-``Parameters``, pre-1.0 lmfit imports ``numpy.dual``, and that was removed in
-numpy 1.20, the last release supporting Python 3.9. So the reference runs in a
-separate 3.9 environment via ``scripts/pyrho_reference.py``, which integrates
-PyRhO's own equations with PyRhO's own parameters and PyRhO's own ``odeint`` call.
+**Does it agree with PyRhO?** Yes, and measured trace against trace -- on both
+the open fraction and the photocurrent. PyRhO 0.9.4 cannot run on Python 3.12:
+its ``PyRhOparameters`` needs lmfit's pre-1.0 ``Parameters``, pre-1.0 lmfit
+imports ``numpy.dual``, and numpy 1.26 -- the first release that builds on 3.12
+-- no longer has it. (``numpy.dual`` was deprecated in numpy 1.20 and removed in
+1.25, not removed in 1.20 as an earlier version of this docstring said.) So the
+reference runs in a separate 3.9 environment via ``scripts/pyrho_reference.py``,
+which integrates PyRhO's own equations with PyRhO's own parameters and PyRhO's
+own ``odeint`` call.
 
 PyRhO was NOT patched. Its dependencies were installed, which is a different
 thing; the only addition beyond its own pins is ``ipywidgets``, missing from its
@@ -86,6 +89,64 @@ def load_reference(irradiance: float, directory: str) -> dict | None:
     if payload.get("source") != "PyRhO":
         raise ValueError(f"{path} is not a PyRhO reference: source={payload.get('source')}")
     return payload
+
+
+def reference_currents_na(reference: dict) -> list[float] | None:
+    """PyRhO's photocurrent series from a stored reference, in NANOAMPS.
+
+    PyRhO's ``calcI`` returns nA, per its own docstring. References written
+    before that was noticed stored the series under the key ``current_pa``,
+    which named the wrong unit while holding the right numbers. Both spellings
+    are accepted here and both mean nanoamps, so an old reference on disk is
+    never silently read as picoamps -- which would put the comparison out by a
+    factor of a thousand and look like a disagreement in the model.
+    """
+    if reference.get("current_na") is not None:
+        return reference["current_na"]
+    legacy = reference.get("current_pa")
+    if legacy is not None:
+        print(
+            "  NOTE: this reference stores the current under the legacy key\n"
+            "  'current_pa'. PyRhO's calcI returns nA, so the values are\n"
+            "  nanoamps and only the key name was wrong. Regenerate with\n"
+            "  scripts/pyrho_reference.py to write 'current_na'."
+        )
+        return legacy
+    return None
+
+
+def compare_currents_against_reference(
+    model: ChR2ThreeState, reference: dict, currents_na: list[float]
+) -> tuple[float, float, float]:
+    """Max absolute photocurrent deviation, in pA, on the reference's own grid.
+
+    The open-fraction comparison exercises the three rate parameters and
+    nothing else. The photocurrent is the only place ``g0``, ``E``, ``v0`` and
+    ``v1`` are used, so without this they are transcribed but untested -- four
+    of the eleven cited ChR2 parameters carried by a claim of agreement that
+    never touched them.
+
+    ``currents_na`` is the reference's own series in nanoamps, loaded once by
+    :func:`reference_currents_na` so the legacy-key warning is printed once.
+    """
+    theirs_na = currents_na
+    voltage = reference["voltage_mv"]
+    states = analytic_step_response(
+        model, reference["photon_flux"], reference["times_ms"]
+    )
+    worst = 0.0
+    worst_at = 0.0
+    peak = 0.0
+    for time_ms, state, their_na in zip(
+        reference["times_ms"], states, theirs_na, strict=True
+    ):
+        mine_pa = model.current_pa((state[0], state[1], state[2]), voltage)
+        theirs_pa = their_na * 1000.0
+        error = abs(mine_pa - theirs_pa)
+        if error > worst:
+            worst, worst_at = error, time_ms
+        peak = max(peak, abs(theirs_pa))
+    return worst, worst_at, worst / peak if peak else float("nan")
 
 
 def compare_against_reference(
@@ -261,7 +322,59 @@ def main() -> int:
                 "  test; PyRhO is the reference and is not to be adjusted."
             )
 
-    heading("4. What this does and does not establish")
+    heading("4. Agreement: the photocurrent, not only the open fraction")
+    current_tolerance_relative = 1e-5
+    current_worst: float | None = None
+    current_worst_at: float | None = None
+    current_relative: float | None = None
+    current_ok = False
+    print(
+        "  The open fraction exercises the three rates. The current is the only\n"
+        "  place g0, E, v0 and v1 are used, so comparing O alone leaves four of\n"
+        "  the eleven cited ChR2 parameters untested against the reference.\n"
+        "  PyRhO's calcI returns nA; optosim works in pA. The factor of 1000 is\n"
+        "  applied here explicitly rather than assumed anywhere."
+    )
+    if reference is None:
+        print("\n  SKIPPED: no stored reference.")
+    else:
+        theirs_na = reference_currents_na(reference)
+        if theirs_na is None:
+            print(
+                "\n  SKIPPED: this reference carries no current series, so g0, E,\n"
+                "  v0 and v1 remain UNTESTED against PyRhO. Regenerate it."
+            )
+        else:
+            current_worst, current_worst_at, current_relative = (
+                compare_currents_against_reference(model, reference, theirs_na)
+            )
+            peak_pa = max(abs(value) * 1000.0 for value in theirs_na)
+            print(f"\n  voltage of the comparison:       {reference['voltage_mv']:g} mV")
+            print(f"  peak |I|, PyRhO:                 {peak_pa:.4f} pA")
+            print(f"  max |I_optosim - I_pyrho|:       {current_worst:.4e} pA  "
+                  f"(at t = {current_worst_at:g} ms)")
+            print(f"  as a fraction of the peak:       {current_relative:.3e}")
+            current_ok = current_relative < current_tolerance_relative
+            print(
+                f"\n  VERDICT: {'PASS' if current_ok else 'FAIL'} against a "
+                f"{current_tolerance_relative:g} relative tolerance."
+            )
+            if current_ok:
+                print(
+                    "  g0, E, v0 and v1 now carry a measured agreement rather than\n"
+                    "  a transcription nobody checked. The residual sits at the same\n"
+                    "  scale as the open-fraction one, so it is the reference's own\n"
+                    "  odeint tolerance propagating through, not a disagreement in\n"
+                    "  the current equation."
+                )
+            else:
+                print(
+                    "  INVESTIGATE THE OPTOSIM SIDE FIRST. Check the unit before the\n"
+                    "  algebra: a deviation near a factor of 1000 is a nA/pA error,\n"
+                    "  not a wrong model."
+                )
+
+    heading("5. What this does and does not establish")
     print(
         "  Established: the photocycle is integrated correctly (exact solution),\n"
         "  the steady state agrees with PyRhO's published closed form, and -- when\n"
@@ -307,6 +420,13 @@ def main() -> int:
         "deviation_at_ms": worst_trace_at,
         "deviation_relative_to_peak": relative,
         "model_agreement_tolerance": agreement_tolerance,
+        "max_abs_current_deviation_pa_vs_pyrho": current_worst,
+        "current_deviation_at_ms": current_worst_at,
+        "current_deviation_relative_to_peak": current_relative,
+        "current_agreement_tolerance_relative": current_tolerance_relative,
+        # False unless a current series was actually compared. Without it, g0,
+        # E, v0 and v1 are transcribed but unverified against the reference.
+        "current_agreement_verified": current_ok,
         # True only with the measured deviation attached, and only when a real
         # PyRhO trace was compared against. A missing reference leaves this false.
         "model_agreement_verified": agreement_ok,
