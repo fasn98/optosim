@@ -167,26 +167,46 @@ transient. Both irradiances are checked because `Ga` and `Gr` have different Hil
 exponents (p = 0.8, q = 0.25) and scale differently with flux, so a cancellation
 at one would not survive a tenfold change. Both agree.
 
-**Getting PyRhO to run took a pinned chain.** `PyRhOparameters` needs lmfit's
-pre-1.0 `Parameters`, and pre-1.0 lmfit imports `numpy.dual`.
+**Getting PyRhO to run: what actually constrains the environment.** `PyRhO
+0.9.4` needs lmfit's pre-1.0 `Parameters`, and pre-1.0 lmfit does not survive a
+modern numpy. Earlier versions of this README, and of the paper, explained that
+with version numbers nobody had checked, and got them wrong twice. What follows
+was measured instead, by walking a Python 3.10 environment down the numpy
+versions one at a time and recording where each attempt died:
 
-The version facts, checked against NumPy's release notes rather than recalled:
-`numpy.dual` was **deprecated** in numpy
-[1.20](https://numpy.org/doc/2.3/release/1.20.0-notes.html) and **removed** in
-numpy [1.25](https://numpy.org/doc/2.2/release/1.25.0-notes.html), and numpy
-1.25 still supported Python 3.9–3.11. An earlier version of this README said
-`numpy.dual` was removed in 1.20 and that numpy 1.19 was the last release
-building on Python 3.9. Both were wrong, and they made the pin stricter than the
-constraint it encodes: what lmfit<1.0 actually requires is `numpy<1.25`.
+| numpy in the environment | first failure | what is missing |
+|---|---|---|
+| 2.2.6 | `lmfit/minimizer.py:23`, `from numpy.dual import inv` | `numpy.dual`, removed in numpy 1.25 |
+| 1.24.4 | `lmfit/models.py:15`, `np.finfo(np.float).eps` | `np.float`, removed in numpy 1.24 |
+| 1.23.5 | `pyrho/IPythonGUI.py:7`, `import ipywidgets` | `ipywidgets`, a dependency PyRhO imports unconditionally and omits from its metadata |
+| 1.23.5 + `ipywidgets` | — | nothing: `PyRhO 0.9.4` imports on **Python 3.10.21** |
 
-What remains genuinely forced is the Python version, and for a different reason
-than the one given before: numpy 1.26 is the first release that builds on Python
-3.12, so on 3.12 `numpy.dual` is gone whatever is pinned and lmfit<1.0 cannot
-import. The environment below is therefore **sufficient but not minimal** — a
-looser one (3.11 with `numpy<1.25`) is predicted to work and has not been tested,
-so it is not claimed. The reference runs under micromamba + Python 3.9 +
-`numpy<1.20` + `lmfit<1.0` + `pyrho`, plus `ipywidgets`, which PyRhO's GUI module
-imports unconditionally and its metadata omits.
+Two things follow, and both contradict what this project previously published.
+
+**The binding constraint is `numpy<1.24`, not `numpy<1.20`.** `numpy.dual` was
+*deprecated* in numpy
+[1.20](https://numpy.org/doc/2.3/release/1.20.0-notes.html) and *removed* in
+[1.25](https://numpy.org/doc/2.2/release/1.25.0-notes.html); the earlier pin
+confused the two. But fixing only that is still not enough, which is why the
+table matters more than the release notes: `np.float` goes one release sooner,
+in 1.24, and lmfit 0.9.15 uses it at import time. A pin derived from a single
+remembered fact would have landed on the wrong number either way.
+
+**Python 3.9 was never required.** The original attempt on 3.10 failed because
+pip installed numpy 2.2.6 into it, not because of the interpreter. With
+`numpy<1.24`, PyRhO 0.9.4 imports on 3.10 — and the reference traces regenerated
+there are **bit-identical** to the ones produced under Python 3.9.23 with numpy
+1.19.5, in both the open fraction and the photocurrent, all 20001 samples. The
+reference is therefore not an artefact of one exotic environment.
+
+The committed traces were produced under micromamba + Python 3.9.23 +
+`numpy 1.19.5` + `lmfit 0.9.15` + `pyrho 0.9.4`, and that environment is kept as
+the one of record. Python 3.10.21 + `numpy 1.23.5` + `lmfit 0.9.15` +
+`ipywidgets` is a tested alternative that gives the same bytes.
+
+Python 3.12, which this package runs on, remains out of reach: numpy 1.26 is the
+first release that builds on it, so `numpy<1.24` cannot be satisfied there at
+all.
 
 **PyRhO was not patched.** Installing a package's dependencies is not editing it.
 Nothing from optosim takes part in producing the reference: `scripts/pyrho_reference.py`

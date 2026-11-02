@@ -1,25 +1,38 @@
 #!/usr/bin/env python3
 """Generate a ChR2 three-state reference trace with PyRhO itself.
 
-RUNS IN A SEPARATE PYTHON 3.9 ENVIRONMENT, not the optosim venv. PyRhO 0.9.4
-cannot run on 3.12: its ``PyRhOparameters`` needs lmfit's pre-1.0 ``Parameters``,
-and pre-1.0 lmfit imports ``numpy.dual``.
+RUNS IN A SEPARATE ENVIRONMENT, not the optosim venv, because PyRhO 0.9.4 needs
+lmfit's pre-1.0 ``Parameters`` and pre-1.0 lmfit does not survive a modern numpy.
 
-The version facts, checked against NumPy's own release notes rather than
-recalled: ``numpy.dual`` was *deprecated* in numpy 1.20 and *removed* in numpy
-1.25; numpy 1.25 still supported Python 3.9-3.11. An earlier version of this
-docstring said it was removed in 1.20 and that 1.20 was the last release
-supporting 3.9. Both were wrong, and the pin below is stricter than the
-constraint it was meant to encode: the requirement is ``numpy<1.25``, not
-``numpy<1.20``.
+What actually constrains that environment was measured, not recalled -- earlier
+versions of this docstring explained it with version numbers nobody had checked
+and got them wrong twice. Walking a Python 3.10 environment down the numpy
+versions:
 
-What that leaves actually forced: Python 3.12 cannot take ``numpy<1.25`` at all,
-because 1.26 is the first numpy to build on 3.12 -- so on 3.12 ``numpy.dual`` is
-gone whatever is pinned, and lmfit<1.0 cannot import. The environment used here
-is therefore sufficient but not minimal, and the looser pin has not been tested::
+===============  ==========================================  =====================
+numpy            first failure                               what is missing
+===============  ==========================================  =====================
+2.2.6            ``lmfit/minimizer.py:23``                   ``numpy.dual``, gone in 1.25
+1.24.4           ``lmfit/models.py:15``                      ``np.float``, gone in 1.24
+1.23.5           ``pyrho/IPythonGUI.py:7``                   ``ipywidgets``, undeclared
+1.23.5 + widgets --                                          nothing; PyRhO imports
+===============  ==========================================  =====================
+
+So the binding pin is ``numpy<1.24``, and Python 3.9 was never required: the
+first attempt on 3.10 failed because pip put numpy 2.2.6 in it. Both
+environments below produce bit-identical traces, all 20001 samples, in both the
+open fraction and the current. Python 3.12 is still out of reach -- numpy 1.26
+is the first that builds on it, so ``numpy<1.24`` cannot be satisfied there.
+
+Of record (the committed traces came from this one)::
 
     micromamba create -n pyrho39 -c conda-forge python=3.9 'numpy<1.20'
     pip install 'setuptools<81' 'lmfit<1.0' 'numpy<1.20' pyrho ipywidgets
+
+Tested alternative::
+
+    micromamba create -n pyrho310 -c conda-forge python=3.10 'numpy<1.24'
+    pip install 'setuptools<81' 'lmfit<1.0' 'numpy<1.24' pyrho ipywidgets
 
 PyRhO was NOT modified. Installing its dependencies is not patching it; the only
 thing added beyond its own pins is ``ipywidgets``, which its GUI module imports

@@ -15,13 +15,13 @@ the part of the problem this package controls.
 
 **Does it agree with PyRhO?** Yes, and measured trace against trace -- on both
 the open fraction and the photocurrent. PyRhO 0.9.4 cannot run on Python 3.12:
-its ``PyRhOparameters`` needs lmfit's pre-1.0 ``Parameters``, pre-1.0 lmfit
-imports ``numpy.dual``, and numpy 1.26 -- the first release that builds on 3.12
--- no longer has it. (``numpy.dual`` was deprecated in numpy 1.20 and removed in
-1.25, not removed in 1.20 as an earlier version of this docstring said.) So the
-reference runs in a separate 3.9 environment via ``scripts/pyrho_reference.py``,
-which integrates PyRhO's own equations with PyRhO's own parameters and PyRhO's
-own ``odeint`` call.
+it needs lmfit's pre-1.0 ``Parameters``, pre-1.0 lmfit needs ``numpy<1.24``
+(``np.float`` goes in 1.24, ``numpy.dual`` in 1.25), and numpy 1.26 is the first
+release that builds on 3.12. So the reference runs in a separate environment via
+``scripts/pyrho_reference.py``. See that script and the README for the measured
+version table; in particular Python 3.9 is not required, as an earlier version
+of this docstring claimed -- 3.10 with ``numpy<1.24`` produces bit-identical
+traces.
 
 PyRhO was NOT patched. Its dependencies were installed, which is a different
 thing; the only addition beyond its own pins is ``ipywidgets``, missing from its
